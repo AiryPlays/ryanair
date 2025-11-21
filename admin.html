@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin • Flights</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}</style>
+  </head>
+  <body class="bg-gray-100">
+    <header class="bg-blue-800 text-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="https://flights.robloxryanair.com/harpyellow.png" alt="logo" class="h-7 w-7" />
+          <span class="font-semibold">Admin</span>
+        </div>
+        <a href="/" class="text-blue-100 hover:text-white text-sm">Back to site</a>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-semibold text-gray-900">Manage Flights</h1>
+        <button id="add-row" class="bg-blue-700 text-white px-3 py-2 rounded-md text-sm">Add Flight</button>
+      </div>
+      <div class="mt-4 overflow-x-auto bg-white border border-gray-200 rounded-lg">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-700">
+            <tr>
+              <th class="px-3 py-2 text-left">Day</th>
+              <th class="px-3 py-2 text-left">Flight #</th>
+              <th class="px-3 py-2 text-left">Time TZ</th>
+              <th class="px-3 py-2 text-left">Departure</th>
+              <th class="px-3 py-2 text-left">Arrival</th>
+              <th class="px-3 py-2 text-left">Dep Time</th>
+              <th class="px-3 py-2 text-left">Arr Time</th>
+              <th class="px-3 py-2 text-left">Duration</th>
+              <th class="px-3 py-2 text-left">Operator</th>
+              <th class="px-3 py-2 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="status" class="mt-3 text-sm text-gray-600"></p>
+    </main>
+
+    <script>
+      const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+      const operators = ['ryanairdac','malta','buzz'];
+      const rowsEl = document.getElementById('rows');
+      const statusEl = document.getElementById('status');
+
+      function select(value, options){
+        return `<select class="border rounded px-2 py-1">${options.map(o=>`<option ${o===value?'selected':''}>${o}</option>`).join('')}</select>`;
+      }
+
+      function input(value){
+        return `<input class="border rounded px-2 py-1" value="${value ?? ''}" />`;
+      }
+
+      function rowTemplate(f){
+        return `<tr class="border-t">
+          <td class="px-3 py-2">${select(f.day, days)}</td>
+          <td class="px-3 py-2">${input(f.flightNumber)}</td>
+          <td class="px-3 py-2">${input(f.time)}</td>
+          <td class="px-3 py-2">${input(f.departure)}</td>
+          <td class="px-3 py-2">${input(f.arrival)}</td>
+          <td class="px-3 py-2">${input(f.departureTime)}</td>
+          <td class="px-3 py-2">${input(f.arrivalTime)}</td>
+          <td class="px-3 py-2">${input(f.duration)}</td>
+          <td class="px-3 py-2">${select(f.operator, operators)}</td>
+          <td class="px-3 py-2 flex gap-2">
+            <button class="save bg-green-600 text-white px-2 py-1 rounded">Save</button>
+            <button class="delete bg-red-600 text-white px-2 py-1 rounded">Delete</button>
+          </td>
+        </tr>`;
+      }
+
+      async function load(){
+        const res = await fetch('/api/flights');
+        const data = await res.json();
+        rowsEl.innerHTML = '';
+        for(const f of data){
+          const tr = document.createElement('tr');
+          tr.innerHTML = rowTemplate(f);
+          tr.dataset.id = f.id;
+          attachRowHandlers(tr);
+          rowsEl.appendChild(tr);
+        }
+      }
+
+      function collectRow(tr){
+        const cells = tr.querySelectorAll('td');
+        return {
+          day: cells[0].querySelector('select').value,
+          flightNumber: cells[1].querySelector('input').value,
+          time: cells[2].querySelector('input').value,
+          departure: cells[3].querySelector('input').value,
+          arrival: cells[4].querySelector('input').value,
+          departureTime: cells[5].querySelector('input').value,
+          arrivalTime: cells[6].querySelector('input').value,
+          duration: cells[7].querySelector('input').value,
+          operator: cells[8].querySelector('select').value,
+        };
+      }
+
+      function attachRowHandlers(tr){
+        tr.querySelector('.save').addEventListener('click', async () => {
+          const payload = collectRow(tr);
+          const id = tr.dataset.id;
+          const res = await fetch(`/api/flights?id=${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          statusEl.textContent = res.ok ? 'Saved' : 'Save failed';
+          if(res.ok) load();
+        });
+        tr.querySelector('.delete').addEventListener('click', async () => {
+          const id = tr.dataset.id;
+          const res = await fetch(`/api/flights?id=${id}`, { method: 'DELETE' });
+          statusEl.textContent = res.ok ? 'Deleted' : 'Delete failed';
+          if(res.ok) load();
+        });
+      }
+
+      document.getElementById('add-row').addEventListener('click', async () => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = rowTemplate({ day: 'Monday', flightNumber: '', time: '', departure: '', arrival: '', departureTime: '', arrivalTime: '', duration: '', operator: 'ryanairdac' });
+        const saveNew = tr.querySelector('.save');
+        saveNew.addEventListener('click', async () => {
+          const payload = collectRow(tr);
+          const res = await fetch('/api/flights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          statusEl.textContent = res.ok ? 'Added' : 'Add failed';
+          if(res.ok) load();
+        });
+        const delNew = tr.querySelector('.delete');
+        delNew.addEventListener('click', () => tr.remove());
+        rowsEl.prepend(tr);
+      });
+
+      load();
+    </script>
+  </body>
+</html>

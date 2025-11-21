@@ -1,0 +1,2 @@
+#/api proxy to your backend (replace the domain below)
+/api/* https://your-backend.example.com/api/:splat 200
